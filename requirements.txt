@@ -1,5 +1,5 @@
-opencv-python~=4.5.5.64
-numpy~=1.22.3
-pywin32~=303
-PyAutoGUI~=0.9.53
-aiogram~=2.19
+opencv-python==4.5.5.64
+numpy==1.22.3
+pywin32==303
+PyAutoGUI==0.9.53
+aiogram==2.19
