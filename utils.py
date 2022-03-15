@@ -83,7 +83,7 @@ class Botutils:
             types.BotCommand("screenshot", "Сделать скриншот экрана, отправить"),
             types.BotCommand("create_video_dem", "Записать видео, отправить"),
             types.BotCommand("active_process", "Посмотреть список активных программ"),
-            types.BotCommand("process_shutdown", "Завершаает процесс по id"),
+            types.BotCommand("process_shutdown", "Завершает процесс по id"),
             types.BotCommand("set_active_window", "Сделать приложение активным"),
             types.BotCommand("pc_sleep", "Переводит ПК в спящий режим"),
             types.BotCommand("pc_reboot", "Перезагружает ПК"),

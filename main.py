@@ -27,7 +27,7 @@ async def command_start(message: types.Message) -> None:
         "<b>/screenshot</b> - Скриншотит экран, отправляя фотографию\n"
         "<b>/create_video_dem</b> [длительность] - Записывает демонстрацию экрана, отправляя видео\n"
         "<b>/active_process</b> - Выводит список активных программ (окон)\n"
-        "<b>/process_shutdown</b> [id] - Завершаает процесс по id\n"
+        "<b>/process_shutdown</b> [id] - Завершает процесс по id\n"
         "<b>/set_active_window</b> [id] - Делает выбранное приложение активным (переносит на передний план)\n"
         "<b>/pc_sleep</b> - Переводит ПК в спящий режим\n"
         "<b>/pc_reboot</b> - Перезагружает ПК\n"
