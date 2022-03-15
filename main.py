@@ -1,4 +1,6 @@
 # -*- coding: UTF-8 -*-
+import aiogram.utils.exceptions
+
 from imports import *
 
 
@@ -7,7 +9,11 @@ class Form(StatesGroup):
 
 
 storage = MemoryStorage()
-bot = Bot(token=TOKEN)
+try:
+    bot = Bot(token=TOKEN)
+except aiogram.utils.exceptions.ValidationError:
+    bot = None
+    exit("Неправильный токен. Изменить его можно в файле - config.py")
 dispatcher = Dispatcher(bot, storage=storage)
 
 
