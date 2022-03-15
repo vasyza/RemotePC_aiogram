@@ -1,40 +1,14 @@
 # -*- coding: UTF-8 -*-
 from imports import *
-from config import TOKEN
 
 
-def callback(hwnd, hwnds) -> None:
-    """ Обрабатывает активные\неактивные приложения """
-    if win32gui.IsWindowVisible(hwnd):
-        if not win32gui.GetWindow(hwnd, 4):
-            name = win32gui.GetWindowText(hwnd)
-            if name:
-                line = f"{hwnd}{'  ' * (15 - len(str(hwnd)))}{name}"
-                if len(line) > 64:
-                    hwnds.append(line[:64])
-                    hwnds.append(' ' * 31 + line[64:])
-                else:
-                    hwnds.append(line)
+class Form(StatesGroup):
+    file = State()
 
 
+storage = MemoryStorage()
 bot = Bot(token=TOKEN)
-dispatcher = Dispatcher(bot)
-
-
-async def set_default_commands(dp) -> None:
-    """ Создает список команд бота """
-    await dp.bot.set_my_commands([
-        types.BotCommand("start", "Запустить бота"),
-        types.BotCommand("cmd", "Выполнить команду в командной строке"),
-        types.BotCommand("browser", "Открыть ссылку в браузере"),
-        types.BotCommand("screenshot", "Сделать скриншот экрана, отправить"),
-        types.BotCommand("create_video_dem", "Записать видео, отправить"),
-        types.BotCommand("active_process", "Посмотреть список активных программ"),
-        types.BotCommand("set_active_window", "Сделать приложение активным"),
-        types.BotCommand("pc_sleep", "Переводит ПК в спящий режим"),
-        types.BotCommand("pc_reboot", "Перезагружает ПК"),
-        types.BotCommand("pc_shutdown", "Выключает ПК"),
-    ])
+dispatcher = Dispatcher(bot, storage=storage)
 
 
 @dispatcher.message_handler(commands=["start", "help"])
@@ -47,12 +21,14 @@ async def command_start(message: types.Message) -> None:
         "<b>/screenshot</b> - Скриншотит экран, отправляя фотографию\n"
         "<b>/create_video_dem</b> [длительность] - Записывает демонстрацию экрана, отправляя видео\n"
         "<b>/active_process</b> - Выводит список активных программ (окон)\n"
+        "<b>/process_shutdown</b> [id] - Завершаает процесс по id\n"
         "<b>/set_active_window</b> [id] - Делает выбранное приложение активным (переносит на передний план)\n"
         "<b>/pc_sleep</b> - Переводит ПК в спящий режим\n"
         "<b>/pc_reboot</b> - Перезагружает ПК\n"
-        "<b>/pc_shutdown</b> - Выключает ПК\n",
+        "<b>/pc_shutdown</b> - Выключает ПК\n"
+        "<b>/upload_file</b> - Скачивает отправленный файл\n",
         parse_mode=types.ParseMode.HTML)
-    await set_default_commands(dispatcher)
+    await Botutils.set_default_commands(dispatcher)
 
 
 @dispatcher.message_handler(commands=["cmd"])
@@ -94,38 +70,24 @@ async def command_screenshot(message: types.Message) -> None:
 @dispatcher.message_handler(commands=["create_video_dem"])
 async def command_create_video_dem(message: types.Message) -> None:
     """ Записывает демонстрацию экрана, отправляя видео """
-    file_name = "temp.avi"
-    count_of_seconds = message.text.split("/create_video_dem ")[-1]
-    seconds = int(count_of_seconds) if count_of_seconds.isdigit() else 10
-    screen_size = pyautogui.size()
-    fourcc = cv2.VideoWriter_fourcc(*"XVID")
-    out = cv2.VideoWriter(file_name, fourcc, 10.0, screen_size)
-    for _ in range(10 * seconds):
-        img = pyautogui.screenshot()
-        frame = np.array(img)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        out.write(frame)
-    cv2.destroyAllWindows()
-    out.release()
-    await message.answer_video(video=open(file_name, "rb"))
-    os.remove(file_name)
+    await Utils.record_display(message)
 
 
-@dispatcher.message_handler(commands=['active_process'])
+@dispatcher.message_handler(commands=["active_process"])
 async def command_active_process(message: types.Message) -> None:
     """ Возвращает список активных приложений """
     result = []
-    win32gui.EnumWindows(callback, result)
-    await message.answer(f"Активные программы:\nID{' ' * 27}Name\n" + '\n'.join(result))
+    win32gui.EnumWindows(Utils.callback, result)
+    await message.answer(f"Активные программы:\nID{' ' * 27}Name\n" + "\n".join(result))
 
 
-@dispatcher.message_handler(commands=['set_active_window'])
+@dispatcher.message_handler(commands=["set_active_window"])
 async def command_set_active_window(message: types.Message) -> None:
     """ Выводит окно на передний план по id """
-    window_id = message.text.split('/set_active_window ')[-1]
+    window_id = message.text.split("/set_active_window ")[-1]
     if window_id.isdigit():
         shell = win32com.client.Dispatch("WScript.Shell")
-        shell.SendKeys('%')
+        shell.SendKeys("%")
         win32gui.ShowWindow(window_id, 5)
         win32gui.SetForegroundWindow(window_id)
         await message.answer("Успешно!")
@@ -133,7 +95,7 @@ async def command_set_active_window(message: types.Message) -> None:
         await message.answer("Введите корректный id. Он должен быть целочисленным.")
 
 
-@dispatcher.message_handler(commands=['pc_sleep'])
+@dispatcher.message_handler(commands=["pc_sleep"])
 async def command_pc_sleep(message: types.Message) -> None:
     """ Переводит ПК в режим сна """
     os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
@@ -143,16 +105,58 @@ async def command_pc_sleep(message: types.Message) -> None:
 async def command_pc_reboot(message: types.Message) -> None:
     """ Перезагружает ПК """
     try:
-        subprocess.check_call(['shutdown', '-r' '-t', '0'])
+        subprocess.check_call(['shutdown', "-r" "-t", "0"])
     except Exception as e:
         print(e)
 
 
-@dispatcher.message_handler(commands=['pc_shutdown'])
+@dispatcher.message_handler(commands=["pc_shutdown"])
 async def command_pc_sleep(message: types.Message) -> None:
     """ Выключает ПК """
     os.system("shutdown /s /t 1")
 
 
-if __name__ == '__main__':
+@dispatcher.message_handler(commands=["process_shutdown"])
+async def command_process_shutdown(message: types.Message) -> None:
+    """ Завершает процесс """
+    id_process = message.text.split("/process_shutdown ")[-1]
+    if id_process.isdigit():
+        await Utils.process_shutdown(message, id_process)
+    else:
+        await message.answer("Вы ввели некорректный id процесса, он должен быть целочисленным")
+
+
+@dispatcher.message_handler(commands=['upload_file'])
+async def command_upload_file(message: types.Message) -> None:
+    """ Загружает полученный файл на компьютер """
+    await Form.file.set()
+    await message.answer("Отправь файл для загрузки")
+
+
+@dispatcher.message_handler(state='*', commands='cancel')
+async def cancel_handler(message: types.Message, state: FSMContext) -> None:
+    """ Отменяет оптравку файла """
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+
+    await state.finish()
+    await message.answer("Вы отменили загрузку файла")
+
+
+@dispatcher.message_handler(lambda message: message.content_type == 'text', state=Form.file,
+                            content_types=types.ContentTypes.ANY)
+async def check_is_file(message: types.Message) -> None:
+    """ Отсеивает текстовые сообщения """
+    await message.answer("Текст не является файлом. Отправьте файл или напиши /cancle")
+
+
+@dispatcher.message_handler(state=Form.file, content_types=types.ContentTypes.ANY)
+async def get_file(message: types.Message, state: FSMContext) -> None:
+    """ Обработка файлов """
+    await Utils.download_file(message)
+    await state.finish()
+
+
+if __name__ == "__main__":
     executor.start_polling(dispatcher, skip_updates=True)
